@@ -7,8 +7,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Injector", "Injector\Inject
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Application", "Application\Application.vcxproj", "{C19963E6-4405-4DB5-AB48-4FBBBBDBC3E0}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Hack", "Hack", "{4F5A1494-4D87-4D7B-BB45-06EFB887F4ED}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Hooking", "Hooking\Hooking.vcxproj", "{03168A8C-BB30-4369-BD12-32961A13D0B6}"
 EndProject
 Global
@@ -46,10 +44,6 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{7D4DC7DE-23C9-49DC-9B1A-4CE03CD93FB7} = {4F5A1494-4D87-4D7B-BB45-06EFB887F4ED}
-		{03168A8C-BB30-4369-BD12-32961A13D0B6} = {4F5A1494-4D87-4D7B-BB45-06EFB887F4ED}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F4E69BD5-2516-40B4-8205-B14D5038B3B5}
