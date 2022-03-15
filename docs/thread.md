@@ -1,13 +1,16 @@
 # Thread (informatique)
 
+## Sommaire
+
+- Introduction
+- Utilisation
+- Références
+
+## Introduction
+
 Un thread est similaire à un processus car tous deux représentent l'exécution d'un ensemble d'instructions du langage machine d'un processeur.
 Du point de vue de l'utilisateur, ces exécutions semblent se dérouler en parallèle. Toutefois, là où chaque processus possède sa propre mémoire
 virtuelle, les threads d'un même processus se partagent sa mémoire virtuelle. Par contre, tous les threads possèdent leur propre pile d'exécution.
-
-## Sommaire
-
-- Utilisation
-- Références
 
 ## Utilisation
 
