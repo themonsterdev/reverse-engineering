@@ -8,7 +8,7 @@ int sum(int x, int y)
     return x + y;
 }
 
-// Cross-platform sleep function
+// Cross-platform sleep function.
 // https://stackoverflow.com/questions/4184468/sleep-for-milliseconds
 void Sleep(int milliseconds)
 {
@@ -17,6 +17,7 @@ void Sleep(int milliseconds)
     while (clock() < time_end);
 }
 
+// Entry point of the application.
 int main()
 {
     while (true)
