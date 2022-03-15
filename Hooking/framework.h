@@ -4,5 +4,6 @@
 
 // Fichiers d'en-tête Windows
 #include <windows.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>

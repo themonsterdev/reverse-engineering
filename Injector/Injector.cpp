@@ -140,10 +140,6 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	// Logger
-	const char* loggerPath = GetAbsoluteFilename(argv[0], "Injector");
-	printf("Logger path %s\n", loggerPath);
-
 	// Get Process entry
 	PROCESSENTRY32 pe32;
 	GetProcessEntry32(argv[1], 0, &pe32);
@@ -163,5 +159,7 @@ int main(int argc, char** argv)
 	}
 
 	printf("Successfully Injected module <%s> :).\n", moduleFilename);
+	system("pause");
+
 	return EXIT_SUCCESS;
 }

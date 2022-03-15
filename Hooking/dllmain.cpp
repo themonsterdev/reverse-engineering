@@ -7,14 +7,14 @@ static DWORD g_dwThreadId   = 0;
 HANDLE g_hThread            = nullptr;
 
 // Base
-static uintptr_t g_addressBegin = 0;
-static uintptr_t g_sizeOfCode   = 0;
-static uintptr_t g_sizeOfImage  = 0;
+static UINT64 g_addressBegin = 0;
+static UINT64 g_sizeOfCode   = 0;
+static UINT64 g_sizeOfImage  = 0;
 
 // Module (Application)
-static uintptr_t g_pAddressOfSum    = 0;
-static SUM g_pSumTarget             = nullptr;
-static SUM g_pSumOriginal           = nullptr;
+static UINT64 g_pAddressOfSum   = 0;
+static SUM g_pSumTarget         = nullptr;
+static SUM g_pSumOriginal       = nullptr;
 
 int HookPayloadRetOriginal(int x, int y)
 {
@@ -34,16 +34,19 @@ VOID InitPattern(HMODULE hModule)
         reinterpret_cast<const uint8_t*>(dosHeader) + dosHeader->e_lfanew
     );
 
-    g_addressBegin  = reinterpret_cast<uintptr_t>(hModule);
+    g_addressBegin  = reinterpret_cast<UINT64>(hModule);
     g_sizeOfCode    = g_addressBegin + ntHeader->OptionalHeader.SizeOfCode;
     g_sizeOfImage   = ntHeader->OptionalHeader.SizeOfImage;
 }
 
-bool CompareMemory(const uint8_t* pData, const uint8_t* bMask, const char* sMask)
+bool CompareMemory(const UINT64 uAddress, const PBYTE bMask, const char* sMask)
 {
-    for (; *sMask; ++sMask, ++pData, ++bMask)
+    auto pData  = reinterpret_cast<PUINT8>(uAddress);
+    auto wsMask = reinterpret_cast<PUINT8>(bMask);
+
+    for (; *sMask; ++sMask, ++pData, ++wsMask)
     {
-        if (*sMask == 'x' && *pData != *bMask)
+        if (*sMask == 'x' && *pData != *wsMask)
         {
             return false;
         }
@@ -52,17 +55,17 @@ bool CompareMemory(const uint8_t* pData, const uint8_t* bMask, const char* sMask
     return *sMask == NULL;
 }
 
-uintptr_t FindPattern(const char* bMask, const char* sMask)
+UINT64 FindPattern(const PBYTE bMask, const char* sMask)
 {
-    uintptr_t address = 0;
+    UINT64 uAddress = 0;
 
-    for (uint32_t offset = 0; offset < g_sizeOfImage; offset++)
+    for (UINT32 offset = 0; offset < g_sizeOfImage; offset++)
     {
-        address = g_addressBegin + offset;
+        uAddress = g_addressBegin + offset;
 
-        if (CompareMemory((uint8_t*)address, (uint8_t*)bMask, sMask))
+        if (CompareMemory(uAddress, bMask, sMask))
         {
-            return address;
+            return uAddress;
         }
     }
 
@@ -72,15 +75,15 @@ uintptr_t FindPattern(const char* bMask, const char* sMask)
 DWORD WINAPI MainThread(HMODULE hModule)
 {
     InitPattern(GetModuleHandle(0));
-    printf("g_pAddressModule : 0x%p\n", (LPVOID)g_addressBegin);
+    printf("g_addressBegin: %" PRIu64 " \n", g_addressBegin);
 
     // Store the offset of sum(x, y) in Hook.exe here.
-    g_pAddressOfSum = FindPattern("\x89\x54\x24\x10\x89\x4C\x24\x08\x55", "xxxxxxxxx");
-    printf("g_pAddressOfSum: 0x%08x\n", g_pAddressOfSum);
+    g_pAddressOfSum = FindPattern((PBYTE)"\x89\x54\x24\x10\x89\x4C\x24\x08\x55", "xxxxxxxxx");
+    printf("g_pAddressOfSum: %" PRIu64 " \n", g_pAddressOfSum);
 
     // Store the sum.
     g_pSumTarget = reinterpret_cast<SUM>(g_pAddressOfSum);
-    printf("g_pSumTarget: %p\n", (LPVOID)g_pSumTarget);
+    printf("g_pSumTarget: %p\n", g_pSumTarget);
 
     // install hook
     InstallHook(
