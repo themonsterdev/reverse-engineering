@@ -11,9 +11,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Hooking", "Hooking\Hooking.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentation", "{D21A4BA8-5656-4BBF-8E71-7C608002115D}"
 	ProjectSection(SolutionItems) = preProject
+		docs\application.md = docs\application.md
 		docs\hooking.md = docs\hooking.md
 		docs\index.md = docs\index.md
-		docs\thread.md = docs\thread.md
+		docs\injector.md = docs\injector.md
 	EndProjectSection
 EndProject
 Global

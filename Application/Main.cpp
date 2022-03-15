@@ -23,6 +23,8 @@ int main()
     {
         // Prints the result of 5 + 5 once per second.
         printf("sum 5 + 5 = %d\n", sum(5, 5));
+
+        // Wait 1 second before continuing
         Sleep(1000);
     }
 
