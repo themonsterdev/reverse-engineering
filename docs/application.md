@@ -17,7 +17,7 @@ La fonction `main` est le point d'entrée de notre application, c'est ici que no
 affichera le résultat de `5 + 5`.
 
 ```c++
-// Entry point of the application.
+// Point d'entrée de l'application.
 int main()
 {
     while (true)
@@ -53,13 +53,13 @@ int sum(int x, int y)
 #include <stdio.h>
 #include <time.h>
 
-// Function that will be hooked by our dll.
+// Fonction qui sera accrochée par notre dll.
 int sum(int x, int y)
 {
     return x + y;
 }
 
-// Cross-platform sleep function.
+// Fonction de veille multiplateforme.
 // https://stackoverflow.com/questions/4184468/sleep-for-milliseconds
 void Sleep(int milliseconds)
 {
@@ -68,18 +68,19 @@ void Sleep(int milliseconds)
     while (clock() < time_end);
 }
 
-// Entry point of the application.
+// Point d'entrée de l'application.
 int main()
 {
     while (true)
     {
-        // Prints the result of 5 + 5 once per second.
+        // Imprime le résultat de 5 + 5 une fois par seconde.
         printf("sum 5 + 5 = %d\n", sum(5, 5));
 
-        // Wait 1 second before continuing
+        // Attendez 1 seconde avant de continuer
         Sleep(1000);
     }
 
+    // Retourne un status de sortie avec success.
     return EXIT_SUCCESS;
 }
 ```
