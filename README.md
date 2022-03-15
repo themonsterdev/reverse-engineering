@@ -1,3 +1,3 @@
 # reverse-engineering
  
-- [Documentation](docs/index.md)
+- [Documentation](https://themonsterdev.github.io/reverse-engineering)
