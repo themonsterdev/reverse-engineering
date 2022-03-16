@@ -61,6 +61,10 @@ chargé au démarrage d'un thread.
 
 ### Exemple de code (Windows)
 
+L'exemple de fonction ci-dessous utilise une méthode d'**injection de DLL** qui exploite le fait que `kernel32.dll` est mappé à la même adresse dans presque
+tous les processus. Par conséquent, `LoadLibrary` (qui est une fonction de `kernel32.dll`) est également mappé à la même adresse. `LoadLibrary` correspond
+également à la routine de démarrage de thread requise par `CreateRemoteThread`.
+
 ```c++
 #include <Windows.h>
 #include <TlHelp32.h>
