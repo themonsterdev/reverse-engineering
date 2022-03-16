@@ -25,9 +25,7 @@ un **injecteur DLL**.
 ## Windows
 
 Il existe plusieurs façons sur **Windows** de forcer un processus à charger et à exécuter du code d'un DLL, je vais vous en montrée une qui utilise la
-fonction `LoadLibraryA` et qui permet d'injecter un DLL dans un processus en cours d'exécution.
-
-API LoadLibrary
+fonction `LoadLibraryA` et qui permettra d'injecter un DLL dans un processus en cours d'exécution.
 
 
 ### Diagramme de classe (Windows)
