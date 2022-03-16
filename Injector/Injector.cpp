@@ -55,15 +55,15 @@ BOOL InjectModule(DWORD processId, const char* filename)
 
 	// Reserves memory in the virtual address space of a specified process.
 	printf("[+]Reserve memory in the virtual address space of the target process.\n");
-	size_t dwFilepathSize	= strlen(filename) + 1;
-	LPVOID pBaseAddrOfAlloc	= VirtualAllocEx(
+	size_t dwFilepathSize			= strlen(filename) + 1;
+	LPVOID pDllFilenameAllocAddr	= VirtualAllocEx(
 		hProcess,					// The function allocates memory within the virtual address space of this process.
 		nullptr,					// The pointer that specifies a desired starting address for the region of pages that you want to allocate.
 		dwFilepathSize,				// The size of the region of memory to allocate, in bytes.
 		MEM_COMMIT | MEM_RESERVE,	// The type of memory allocation.
 		PAGE_READWRITE				// The memory protection for the region of pages to be allocated.
 	);
-	if (pBaseAddrOfAlloc == nullptr)
+	if (pDllFilenameAllocAddr == nullptr)
 	{
 		printf("[!]VirtualAllocEx failed with error (%d).\n", GetLastError());
 		CloseHandle(hProcess);
@@ -76,7 +76,7 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	DWORD lpflOldProtect = 0; // A pointer to a variable that receives the previous access protection of the first page in the specified region of pages.
 	BOOL success = VirtualProtectEx(
 		hProcess,				// A handle to the process whose memory protection is to be changed.
-		pBaseAddrOfAlloc,		// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
+		pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
 		dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
 		PAGE_EXECUTE_READWRITE,	// The memory protection option.
 		&lpflOldProtect
@@ -94,7 +94,7 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	SIZE_T lpNumberOfBytesWritten;
 	success = WriteProcessMemory(
 		hProcess,				// A handle to the process memory to be modified.
-		pBaseAddrOfAlloc,		// A pointer to the base address in the specified process to which data is written.
+		pDllFilenameAllocAddr,	// A pointer to the base address in the specified process to which data is written.
 		filename,				// A pointer to the buffer that contains data to be written in the address space of the specified process.
 		dwFilepathSize,			// The number of bytes to be written to the specified process.
 		&lpNumberOfBytesWritten	// A pointer to a variable that receives the number of bytes transferred into the specified process.
@@ -116,10 +116,10 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	// Reset VirtualProtectEx
 	printf("\t[+]Reset protect virtual memory for target process handle.\n");
 	success = VirtualProtectEx(
-		hProcess,			// A handle to the process whose memory protection is to be changed.
-		pBaseAddrOfAlloc,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
-		dwFilepathSize,		// The size of the region whose access protection attributes are changed, in bytes.
-		lpflOldProtect,		// [Reset] The memory protection option.
+		hProcess,				// A handle to the process whose memory protection is to be changed.
+		pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
+		dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
+		lpflOldProtect,			// [Reset] The memory protection option.
 		&lpflOldProtect
 	);
 	if (!success)
@@ -147,13 +147,13 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	printf("[+]Creating remote thread in target Process.\n");
 	DWORD lpThreadId;
 	HANDLE hThread = CreateRemoteThread(
-		hProcess,			// A handle to the process in which the thread is to be created.
-		nullptr,			// A pointer to a SECURITY_ATTRIBUTES structure.
-		0,					// The initial size of the stack, in bytes. 
-		addrLoadLibrary,	// A pointer to the application-defined function of type LPTHREAD_START_ROUTINE to be executed by the thread and represents the starting address of the thread in the remote process.
-		pBaseAddrOfAlloc,	// A pointer to a variable to be passed to the thread function.
-		0,					// The flags that control the creation of the thread.
-		&lpThreadId			// A pointer to a variable that receives the thread identifier.
+		hProcess,				// A handle to the process in which the thread is to be created.
+		nullptr,				// A pointer to a SECURITY_ATTRIBUTES structure.
+		0,						// The initial size of the stack, in bytes. 
+		addrLoadLibrary,		// A pointer to the application-defined function of type LPTHREAD_START_ROUTINE to be executed by the thread and represents the starting address of the thread in the remote process.
+		pDllFilenameAllocAddr,	// A pointer to a variable to be passed to the thread function.
+		0,						// The flags that control the creation of the thread.
+		&lpThreadId				// A pointer to a variable that receives the thread identifier.
 	);
 	if (hThread == nullptr)
 	{
@@ -166,9 +166,15 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	// Wait htread is finished
 	printf("[+]Wait thread is loaded module as terminate.\n\n");
 	WaitForSingleObject(hThread, INFINITE);
-	CloseHandle(hThread);
 
-	CloseHandle(hProcess);
+	DWORD exit_code;
+	GetExitCodeThread(hThread, &exit_code);	// Retrieving the return value, i.e., the module
+											// Handle returned by LoadLibraryA
+
+	CloseHandle(hThread);											// Freeing the injected thread handle
+	VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
+	CloseHandle(hProcess);											// The handle for the target process
+
 	return TRUE;
 }
 
