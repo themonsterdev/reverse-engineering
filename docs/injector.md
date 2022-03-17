@@ -9,6 +9,7 @@
 	- Allouez de la mémoire dans le processus cible (Windows)
 	- Créez un nouveau thread dans le processus cible (Windows)
 	- Exemple de code (Windows)
+- Références
 
 ## Introduction
 
@@ -371,3 +372,8 @@ int main(int argc, char* argv[])
 	return EXIT_SUCCESS;
 }
 ```
+
+## Références
+
+- [DLL injection (Wikipedia)](https://en.wikipedia.org/wiki/DLL_injection)
+- [API tlhelp32 (Windows)](https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32)
