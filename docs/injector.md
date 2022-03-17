@@ -34,13 +34,39 @@ fonction `LoadLibraryA` et qui permettra d'injecter un DLL dans un processus en 
 
 ### Ouvrez un handle vers le processus cible (Windows)
 
-Cela peut être fait en engendrant le processus ou en désactivant quelque chose créé par ce processus dont on sait qu'il existe.
+La première etape consiste à prendre un instantané des processus en cours d'exécution dans le système à l'aide de la fonction `CreateToolhelp32Snapshot`.
 
-Exemple :
+```c++
+HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, th32ProcessID);
+```
 
-- Une fenêtre avec un titre prévisible.
-- En obtenant une liste des processus en cours d'exécution.
-- En recherchant le nom de fichier de l'exécutable cible.
+Ensuite il faut parcourir la liste enregistrée dans l'instantané à l'aide de `Process32First` et `Process32Next` jusqu'a trouvé le processus rechercher.
+
+```c++
+PROCESSENTRY32 pe32 { 0 };
+
+// Set the size of the structure before using it.
+pe32.dwSize = sizeof(PROCESSENTRY32);
+
+// Retrieve information about the first process
+if (Process32First(hProcessSnap, &pe32) == 0)
+	printf("[!]Failed to gather information on system processes!\n"); // show cause of failure
+else
+{
+	// Now walk the snapshot of processes
+	do
+	{
+		if (strcmp("Application.exe", pe32.szExeFile) == 0)
+		{
+			printf("Process ID = 0x%08X\n", pe32.th32ProcessID);
+			break;
+		}
+	}
+	while (Process32Next(hProcessSnap, &pe32));
+}
+```
+
+Exemple complet :
 
 ```c++
 #include <TlHelp32.h>
