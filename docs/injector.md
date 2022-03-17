@@ -34,45 +34,11 @@ fonction `LoadLibraryA` et qui permettra d'injecter un DLL dans un processus en 
 
 ### Ouvrez un handle vers le processus cible (Windows)
 
-La première etape consiste à prendre un instantané des processus en cours d'exécution dans le système à l'aide de la fonction `CreateToolhelp32Snapshot`.
+La première étape consiste à prendre un instantané des processus en cours d'exécution dans le système en utilisant la fonction `CreateToolhelp32Snapshot`.
 
-```c++
-HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, th32ProcessID);
-```
-
-Ensuite il faut parcourir la liste enregistrée dans l'instantané à l'aide de `Process32First` et `Process32Next` jusqu'a trouvé le processus rechercher.
-
-```c++
-PROCESSENTRY32 pe32 { 0 };
-
-// Set the size of the structure before using it.
-pe32.dwSize = sizeof(PROCESSENTRY32);
-
-// Retrieve information about the first process
-if (Process32First(hProcessSnap, &pe32) == 0)
-	printf("[!]Failed to gather information on system processes!\n"); // show cause of failure
-else
-{
-	// Now walk the snapshot of processes
-	do
-	{
-		if (strcmp("Application.exe", pe32.szExeFile) == 0)
-		{
-			printf("Process ID = 0x%08X\n", pe32.th32ProcessID);
-			break;
-		}
-	}
-	while (Process32Next(hProcessSnap, &pe32));
-}
-```
-
-Maintenant que nous connaissons l'ID du processus, nous pouvons ouvrir un handle sur ce processus avec la fonction `OpenProcess`.
-
-```c++
-HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
-```
-
-Exemple de code complet :
+Ensuite, nous pouvons appeler la fonction `Process32First` pour obtenir le premier processus enregistré dans l'instantané. Si le processus actuel est celui
+que nous cherchons, nous avons terminé, sinon nous devons passer au processus suivant en utilisant la fonction `Process32Next` jusqu'à ce que nous trouvions
+celui que nous cherchons.
 
 ```c++
 #include <TlHelp32.h>
@@ -110,7 +76,11 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 		CloseHandle(hProcessSnap);
 	}
 }
+```
 
+Une foi que nous connaissons l'ID du processus, nous pouvons ouvrir un handle sur ce processus avec la fonction `OpenProcess`.
+
+```c++
 HANDLE GetHandleByProcessId(DWORD processId)
 {
 	printf("[+]Opening process by process id (0x%08x).\n\n", processId);
