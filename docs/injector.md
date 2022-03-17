@@ -66,7 +66,13 @@ else
 }
 ```
 
-Exemple complet :
+Maintenant que nous connaissons l'ID du processus, nous pouvons ouvrir un handle sur ce processus avec la fonction `OpenProcess`.
+
+```c++
+HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+```
+
+Exemple de code complet :
 
 ```c++
 #include <TlHelp32.h>
@@ -103,6 +109,27 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 
 		CloseHandle(hProcessSnap);
 	}
+}
+
+HANDLE GetHandleByProcessId(DWORD processId)
+{
+	printf("[+]Opening process by process id (0x%08x).\n\n", processId);
+
+	// Retrieving a handle to the target process.
+	HANDLE hProcess = OpenProcess(
+		PROCESS_ALL_ACCESS, // The access to the process object.
+		FALSE,				// Processes do not inherit this handle.
+		processId			// The identifier of the local process to be opened.
+	);
+
+	if (hProcess == nullptr)
+	{
+		printf("[!]OpenProcess failed with error (%d).\n", GetLastError());
+		return FALSE;
+	}
+
+	printf("[+]Succesfully open handle (0x08%p).\n\n", hProcess);
+	return hProcess;
 }
 ```
 
