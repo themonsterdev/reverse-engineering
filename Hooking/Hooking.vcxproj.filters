@@ -19,6 +19,12 @@
     <Filter Include="Fichiers sources\Hooking">
       <UniqueIdentifier>{855183e2-6a78-47c8-89e7-1b49be505ab4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Fichiers d%27en-tête\Memory">
+      <UniqueIdentifier>{e853d380-dabe-42fd-aa73-d61d6698ba61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Fichiers sources\memory">
+      <UniqueIdentifier>{45b4e5a9-e489-4e05-95b1-93b06d76a31f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -33,6 +39,9 @@
     <ClInclude Include="trampoline.h">
       <Filter>Fichiers d%27en-tête\Hooking</Filter>
     </ClInclude>
+    <ClInclude Include="pattern.h">
+      <Filter>Fichiers d%27en-tête\Memory</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -46,6 +55,9 @@
     </ClCompile>
     <ClCompile Include="trampoline.cpp">
       <Filter>Fichiers sources\Hooking</Filter>
+    </ClCompile>
+    <ClCompile Include="pattern.cpp">
+      <Filter>Fichiers sources\memory</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

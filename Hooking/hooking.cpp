@@ -66,6 +66,16 @@ VOID WriteAbsoluteJump64(LPVOID absJumpMemory, LPVOID addrToJumpTo)
     memcpy(absJumpMemory, absJumpInstructions, sizeof absJumpInstructions);
 }
 
+VOID WriteVirtualMemory(LPVOID pDest, LPVOID pSrc, SIZE_T ulSize)
+{
+    DWORD oldProtect;
+    VirtualProtect(pDest, ulSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+    memcpy(pDest, pSrc, ulSize);
+
+    VirtualProtect(pDest, ulSize, oldProtect, &oldProtect);
+}
+
 VOID InstallHook(LPVOID pTarget, LPVOID pRetour, LPVOID* ppOriginal)
 {
     DWORD oldProtect;

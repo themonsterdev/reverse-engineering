@@ -38,9 +38,47 @@ Cela peut être fait en engendrant le processus ou en désactivant quelque chose
 
 Exemple :
 
-- Une fenêtre avec un titre prévisible
-- En obtenant une liste des processus en cours d'exécution
+- Une fenêtre avec un titre prévisible.
+- En obtenant une liste des processus en cours d'exécution.
 - En recherchant le nom de fichier de l'exécutable cible.
+
+```c++
+#include <TlHelp32.h>
+
+VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPPROCESSENTRY32 lpProcessEntry32)
+{
+	// Take a snapshot of all processes in the system.
+	HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, th32ProcessID);
+	if (hProcessSnap == INVALID_HANDLE_VALUE)
+		printf("[!]CreateToolhelp32Snapshot (of processes)\n");
+	else
+	{
+		PROCESSENTRY32 pe32 { 0 };
+
+		// Set the size of the structure before using it.
+		pe32.dwSize = sizeof(PROCESSENTRY32);
+
+		// Retrieve information about the first process
+		if (Process32First(hProcessSnap, &pe32) == 0)
+			printf("[!]Failed to gather information on system processes!\n");	// show cause of failure
+		else
+		{
+			// Now walk the snapshot of processes
+			do
+			{
+				if (strcmp(szProcessName, pe32.szExeFile) == 0)
+				{
+					memcpy(lpProcessEntry32, &pe32, pe32.dwSize);
+					break;
+				}
+			}
+			while (Process32Next(hProcessSnap, &pe32));
+		}
+
+		CloseHandle(hProcessSnap);
+	}
+}
+```
 
 ### Allouez de la mémoire dans le processus cible (Windows)
 

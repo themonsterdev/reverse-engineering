@@ -8,6 +8,7 @@
 // ajouter les en-têtes à précompiler ici
 #include "framework.h"
 
+#include "pattern.h"
 #include "hooking.h"
 #include "trampoline.h"
 

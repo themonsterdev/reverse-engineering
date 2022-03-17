@@ -153,12 +153,14 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="hooking.h" />
+    <ClInclude Include="pattern.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="trampoline.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="hooking.cpp" />
+    <ClCompile Include="pattern.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

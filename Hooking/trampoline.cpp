@@ -3,8 +3,8 @@
 // Voler des octets
 SInstructions StealBytes(LPVOID pTarget)
 {
-    SInstructions instructions = {};
-    instructions.m_uNumBytes = 8;
+    SInstructions instructions      = {};
+    instructions.m_uNumBytes        = 8;
     instructions.m_uNumInstructions = 2;
 
     // .text:00007FF697001790 89 54 24 10               mov     [rsp-8+arg_8], edx
@@ -27,11 +27,11 @@ SInstructions StealBytes(LPVOID pTarget)
 
 uint32_t BuildTrampoline(LPVOID pTarget, LPVOID pDstMemForTrampoline)
 {
-    SInstructions stolenInstrs = StealBytes(pTarget);
+    SInstructions stolenInstrs      = StealBytes(pTarget);
 
-    uint8_t* stolenByteMemory = (uint8_t*)pDstMemForTrampoline;
-    uint8_t* jumpBackMemory = stolenByteMemory + stolenInstrs.m_uNumBytes;  // m_uNumBytes: 4 + 4 = 8
-    uint8_t* absoluteTableMemory = jumpBackMemory + 13;                          // 13 is the size of a 64 bit mov/jmp instruction pair
+    uint8_t* stolenByteMemory       = (uint8_t*)pDstMemForTrampoline;
+    uint8_t* jumpBackMemory         = stolenByteMemory + stolenInstrs.m_uNumBytes;  // m_uNumBytes: 4 + 4 = 8
+    uint8_t* absoluteTableMemory    = jumpBackMemory + 13;                          // 13 is the size of a 64 bit mov/jmp instruction pair
 
     for (uint32_t i = 0; i < stolenInstrs.m_uNumInstructions; ++i)                  // stolenInstrs.m_uNumInstructions: x + y = 2
     {
