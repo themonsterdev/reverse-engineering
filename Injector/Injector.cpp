@@ -37,26 +37,34 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 	}
 }
 
-BOOL InjectModule(DWORD processId, const char* filename)
+HANDLE GetHandleByProcessId(DWORD processId)
 {
-	// Retrieving a handle to the target process.
 	printf("[+]Opening process by process id (0x%08x).\n\n", processId);
+
+	// Retrieving a handle to the target process.
 	HANDLE hProcess = OpenProcess(
 		PROCESS_ALL_ACCESS, // The access to the process object.
 		FALSE,				// Processes do not inherit this handle.
 		processId			// The identifier of the local process to be opened.
 	);
+
 	if (hProcess == nullptr)
 	{
 		printf("[!]OpenProcess failed with error (%d).\n", GetLastError());
 		return FALSE;
 	}
+
 	printf("[+]Succesfully open handle (0x08%p).\n\n", hProcess);
+	return hProcess;
+}
+
+LPVOID GetAllocAndWriteMemory(HANDLE hProcess, const char* filename)
+{
+	size_t dwFilepathSize = strlen(filename) + 1;
 
 	// Allocating memory in the target process
 	printf("[+]Reserve memory in the virtual address space of the target process.\n");
-	size_t dwFilepathSize			= strlen(filename) + 1;
-	LPVOID pDllFilenameAllocAddr	= VirtualAllocEx(
+	LPVOID pDllFilenameAllocAddr = VirtualAllocEx(
 		hProcess,					// The function allocates memory within the virtual address space of this process.
 		nullptr,					// The pointer that specifies a desired starting address for the region of pages that you want to allocate.
 		dwFilepathSize,				// The size of the region of memory to allocate, in bytes.
@@ -66,8 +74,7 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	if (pDllFilenameAllocAddr == nullptr)
 	{
 		printf("[!]VirtualAllocEx failed with error (%d).\n", GetLastError());
-		CloseHandle(hProcess);
-		return FALSE;
+		return nullptr;
 	}
 	printf("[+]Succesfully reserve memory in the virtual address space of the target process.\n\n");
 
@@ -84,8 +91,7 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	if (!success)
 	{
 		printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
-		CloseHandle(hProcess);
-		return FALSE;
+		return nullptr;
 	}
 	printf("[+]Succesfully set virtual protect (0x%08x).\n", lpflOldProtect);
 
@@ -102,14 +108,12 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	if (!success)
 	{
 		printf("\t[!]WriteProcessMemory failed with error (%d).\n", GetLastError());
-		CloseHandle(hProcess);
-		return FALSE;
+		return nullptr;
 	}
 	else if (lpNumberOfBytesWritten != dwFilepathSize)
 	{
 		printf("\t[!]WriteProcessMemory failed not set total length.\n");
-		CloseHandle(hProcess);
-		return FALSE;
+		return nullptr;
 	}
 	printf("\t[+]Succesfully write memory in handle process.\n");
 
@@ -125,22 +129,28 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	if (!success)
 	{
 		printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
-		CloseHandle(hProcess);
-		return FALSE;
+		return nullptr;
 	}
 	printf("[+]Succesfully reset virtual protect (0x%08x).\n\n", lpflOldProtect);
 
+	return pDllFilenameAllocAddr;
+}
+
+LPTHREAD_START_ROUTINE GetLoadLibraryAddress()
+{
 	// GetProcAddress
 	HMODULE hModuleKernel32 = LoadLibrary("kernel32");
 	if (hModuleKernel32 == 0)
 	{
 		printf("[!]Failed to load module kernel32\n");
-		CloseHandle(hProcess);
 		return FALSE;
 	}
 	// Getting LoadLibraryA address (same across all processes) to start execution at it
-	LPTHREAD_START_ROUTINE loadLibraryAddr = (LPTHREAD_START_ROUTINE)GetProcAddress(hModuleKernel32, "LoadLibraryA");
+	return (LPTHREAD_START_ROUTINE)GetProcAddress(hModuleKernel32, "LoadLibraryA");
+}
 
+BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr, LPVOID pDllFilenameAllocAddr)
+{
 	// Starting a remote execution thread at LoadLibraryA and passing the dll path as an argument.
 	printf("[+]Creating remote thread in target Process.\n");
 	DWORD lpThreadId;
@@ -153,22 +163,51 @@ BOOL InjectModule(DWORD processId, const char* filename)
 		0,						// The flags that control the creation of the thread.
 		&lpThreadId				// A pointer to a variable that receives the thread identifier.
 	);
+
 	if (hThread == nullptr)
 	{
 		printf("[!]CreateRemoteThread failed with error (%d).\n", GetLastError());
 		CloseHandle(hProcess);
 		return FALSE;
 	}
+	
 	printf("[+]Succesfully Create Remote thread in target Process.\n");
 
 	printf("[+]Wait thread is loaded module as terminate.\n\n");
 	WaitForSingleObject(hThread, INFINITE); // Waiting for it to be finished
 	CloseHandle(hThread);					// Freeing the injected thread handle
 
-	VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
-	CloseHandle(hProcess);											// The handle for the target process
-
 	return TRUE;
+}
+
+BOOL InjectModule(DWORD processId, const char* filename)
+{
+	// Retrieving a handle to the target process.
+	HANDLE hProcess = GetHandleByProcessId(processId);
+
+	if (hProcess != nullptr)
+	{
+		LPVOID pDllFilenameAllocAddr = GetAllocAndWriteMemory(hProcess, filename);
+
+		if (pDllFilenameAllocAddr != nullptr)
+		{
+			BOOL success							= FALSE;
+			LPTHREAD_START_ROUTINE loadLibraryAddr	= GetLoadLibraryAddress();
+
+			if (loadLibraryAddr != nullptr)
+			{
+				success = CreateRemoteThread(hProcess, loadLibraryAddr, pDllFilenameAllocAddr);
+			}
+
+			VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
+			CloseHandle(hProcess);											// The handle for the target process
+			return success;
+		}
+
+		CloseHandle(hProcess); // The handle for the target process
+	}
+
+	return FALSE;
 }
 
 int main(int argc, char* argv[])
