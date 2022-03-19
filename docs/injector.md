@@ -12,6 +12,7 @@
 	- Créez un nouveau thread dans le processus cible (Windows)
 	- Appels de toutes les fonctions précédentes (Windows)
 	- Point d'entrée de la console (Windows)
+	- Exemple de code final (Windows)
 - Références
 
 ## Introduction
@@ -345,7 +346,7 @@ int main(int argc, char* argv[])
 }
 ```
 
-### Exemple de code (Windows)
+### Exemple de code final (Windows)
 
 L'exemple de fonction ci-dessous utilise une méthode d'**injection de DLL** qui exploite le fait que `kernel32.dll` est mappé à la même adresse dans presque
 tous les processus. Par conséquent, `LoadLibrary` (qui est une fonction de `kernel32.dll`) est également mappé à la même adresse. `LoadLibrary` correspond
@@ -365,7 +366,7 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 		printf("[!]CreateToolhelp32Snapshot (of processes)\n");
 	else
 	{
-		PROCESSENTRY32 pe32 { 0 };
+		PROCESSENTRY32 pe32{ 0 };
 
 		// Set the size of the structure before using it.
 		pe32.dwSize = sizeof(PROCESSENTRY32);
@@ -383,8 +384,7 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 					memcpy(lpProcessEntry32, &pe32, pe32.dwSize);
 					break;
 				}
-			}
-			while (Process32Next(hProcessSnap, &pe32));
+			} while (Process32Next(hProcessSnap, &pe32));
 		}
 
 		CloseHandle(hProcessSnap);
@@ -412,16 +412,14 @@ HANDLE GetHandleByProcessId(DWORD processId)
 	return hProcess;
 }
 
-LPVOID GetAllocAndWriteMemory(HANDLE hProcess, const char* filename)
+LPVOID GetVirtualAllocAddr(HANDLE hProcess, size_t dwSize)
 {
-	size_t dwFilepathSize = strlen(filename) + 1;
-
 	// Allocating memory in the target process
 	printf("[+]Reserve memory in the virtual address space of the target process.\n");
 	LPVOID pDllFilenameAllocAddr = VirtualAllocEx(
 		hProcess,					// The function allocates memory within the virtual address space of this process.
 		nullptr,					// The pointer that specifies a desired starting address for the region of pages that you want to allocate.
-		dwFilepathSize,				// The size of the region of memory to allocate, in bytes.
+		dwSize,						// The size of the region of memory to allocate, in bytes.
 		MEM_COMMIT | MEM_RESERVE,	// The type of memory allocation.
 		PAGE_READWRITE				// The memory protection for the region of pages to be allocated.
 	);
@@ -432,68 +430,80 @@ LPVOID GetAllocAndWriteMemory(HANDLE hProcess, const char* filename)
 	}
 	printf("[+]Succesfully reserve memory in the virtual address space of the target process.\n\n");
 
-
-	printf("[+]Unprotect virtual memory for target process handle.\n");
-	DWORD lpflOldProtect = 0; // A pointer to a variable that receives the previous access protection of the first page in the specified region of pages.
-	BOOL success = VirtualProtectEx(
-		hProcess,				// A handle to the process whose memory protection is to be changed.
-		pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
-		dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
-		PAGE_EXECUTE_READWRITE,	// The memory protection option.
-		&lpflOldProtect
-	);
-	if (!success)
-	{
-		printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
-		return nullptr;
-	}
-	printf("[+]Succesfully set virtual protect (0x%08x).\n", lpflOldProtect);
-
-	// Writing the dll path into that memory.
-	printf("\t[+]Writes module filename to an area of memory in a target process.\n");
-	SIZE_T lpNumberOfBytesWritten;
-	success = WriteProcessMemory(
-		hProcess,				// A handle to the process memory to be modified.
-		pDllFilenameAllocAddr,	// A pointer to the base address in the specified process to which data is written.
-		filename,				// A pointer to the buffer that contains data to be written in the address space of the specified process.
-		dwFilepathSize,			// The number of bytes to be written to the specified process.
-		&lpNumberOfBytesWritten	// A pointer to a variable that receives the number of bytes transferred into the specified process.
-	);
-	if (!success)
-	{
-		printf("\t[!]WriteProcessMemory failed with error (%d).\n", GetLastError());
-		return nullptr;
-	}
-	else if (lpNumberOfBytesWritten != dwFilepathSize)
-	{
-		printf("\t[!]WriteProcessMemory failed not set total length.\n");
-		return nullptr;
-	}
-	printf("\t[+]Succesfully write memory in handle process.\n");
-
-	// Reset VirtualProtectEx
-	printf("\t[+]Reset protect virtual memory for target process handle.\n");
-	success = VirtualProtectEx(
-		hProcess,				// A handle to the process whose memory protection is to be changed.
-		pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
-		dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
-		lpflOldProtect,			// [Reset] The memory protection option.
-		&lpflOldProtect
-	);
-	if (!success)
-	{
-		printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
-		return nullptr;
-	}
-	printf("[+]Succesfully reset virtual protect (0x%08x).\n\n", lpflOldProtect);
-
 	return pDllFilenameAllocAddr;
+}
+
+LPVOID GetVirtualAllocAddrAndWriteMemory(HANDLE hProcess, const char* filename)
+{
+	size_t dwFilepathSize = strlen(filename) + 1;
+
+	LPVOID pDllFilenameAllocAddr = GetVirtualAllocAddr(hProcess, dwFilepathSize);
+	if (pDllFilenameAllocAddr != nullptr)
+	{
+		printf("[+]Unprotect virtual memory for target process handle.\n");
+		DWORD lpflOldProtect = 0; // A pointer to a variable that receives the previous access protection of the first page in the specified region of pages.
+		BOOL success = VirtualProtectEx(
+			hProcess,				// A handle to the process whose memory protection is to be changed.
+			pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
+			dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
+			PAGE_EXECUTE_READWRITE,	// The memory protection option.
+			&lpflOldProtect
+		);
+		if (!success)
+		{
+			printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
+			return nullptr;
+		}
+		printf("[+]Succesfully set virtual protect (0x%08x).\n", PAGE_EXECUTE_READWRITE);
+
+		// Writing the dll path into that memory.
+		printf("\t[+]Writes module filename to an area of memory in a target process.\n");
+		SIZE_T lpNumberOfBytesWritten;
+		success = WriteProcessMemory(
+			hProcess,				// A handle to the process memory to be modified.
+			pDllFilenameAllocAddr,	// A pointer to the base address in the specified process to which data is written.
+			filename,				// A pointer to the buffer that contains data to be written in the address space of the specified process.
+			dwFilepathSize,			// The number of bytes to be written to the specified process.
+			&lpNumberOfBytesWritten	// A pointer to a variable that receives the number of bytes transferred into the specified process.
+		);
+		if (!success)
+		{
+			printf("\t[!]WriteProcessMemory failed with error (%d).\n", GetLastError());
+			return nullptr;
+		}
+		else if (lpNumberOfBytesWritten != dwFilepathSize)
+		{
+			printf("\t[!]WriteProcessMemory failed not set total length.\n");
+			return nullptr;
+		}
+		printf("\t[+]Succesfully write memory in handle process.\n");
+
+		// Reset VirtualProtectEx
+		printf("\t[+]Reset protect virtual memory for target process handle.\n");
+		success = VirtualProtectEx(
+			hProcess,				// A handle to the process whose memory protection is to be changed.
+			pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
+			dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
+			lpflOldProtect,			// [Reset] The memory protection option.
+			&lpflOldProtect
+		);
+		if (!success)
+		{
+			printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
+			return nullptr;
+		}
+		printf("[+]Succesfully reset virtual protect (0x%08x).\n\n", lpflOldProtect);
+
+		return pDllFilenameAllocAddr;
+	}
+
+	return nullptr;
 }
 
 LPTHREAD_START_ROUTINE GetLoadLibraryAddress()
 {
 	// GetProcAddress
-	HMODULE hModuleKernel32 = LoadLibrary("kernel32");
+	HMODULE hModuleKernel32 = LoadLibraryA("kernel32");
 	if (hModuleKernel32 == 0)
 	{
 		printf("[!]Failed to load module kernel32\n");
@@ -524,7 +534,7 @@ BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr,
 		CloseHandle(hProcess);
 		return FALSE;
 	}
-	
+
 	printf("[+]Succesfully Create Remote thread in target Process.\n");
 
 	printf("[+]Wait thread is loaded module as terminate.\n\n");
@@ -536,32 +546,29 @@ BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr,
 
 BOOL InjectModule(DWORD processId, const char* filename)
 {
+	BOOL success = FALSE;
+
 	// Retrieving a handle to the target process.
 	HANDLE hProcess = GetHandleByProcessId(processId);
-
 	if (hProcess != nullptr)
 	{
-		LPVOID pDllFilenameAllocAddr = GetAllocAndWriteMemory(hProcess, filename);
-
+		LPVOID pDllFilenameAllocAddr = GetVirtualAllocAddrAndWriteMemory(hProcess, filename);
 		if (pDllFilenameAllocAddr != nullptr)
 		{
-			BOOL success							= FALSE;
-			LPTHREAD_START_ROUTINE loadLibraryAddr	= GetLoadLibraryAddress();
-
+			LPTHREAD_START_ROUTINE loadLibraryAddr = (LPTHREAD_START_ROUTINE)GetLoadLibraryAddress();
 			if (loadLibraryAddr != nullptr)
 			{
 				success = CreateRemoteThread(hProcess, loadLibraryAddr, pDllFilenameAllocAddr);
 			}
 
 			VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
-			CloseHandle(hProcess);											// The handle for the target process
-			return success;
+			success = true;
 		}
 
 		CloseHandle(hProcess); // The handle for the target process
 	}
 
-	return FALSE;
+	return success;
 }
 
 int main(int argc, char* argv[])
