@@ -136,7 +136,7 @@ LPVOID GetVirtualAllocAddr(HANDLE hProcess, size_t dwSize)
 
 ### Écriture dans la mémoire allouée dans le processus cible (Windows)
 
-Écriture le nom de la DLL à injecter dans la mémoire du prossesus cible avec la fonction `WriteProcessMemory`.
+Écriture du nom de la DLL à injecter dans la mémoire du prossesus cible avec la fonction `WriteProcessMemory`.
 
 > Note : La mémoire virtuelle doit avoir la protection `PAGE_EXECUTE_READWRITE` activée sinon vous ne seriez pas autorisé à injecter quoi que ce soit.
 
