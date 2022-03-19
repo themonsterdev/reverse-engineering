@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef HMODULE(WINAPI* pLoadLibraryA)(_In_ LPCSTR);
+
 VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPPROCESSENTRY32 lpProcessEntry32)
 {
 	// Take a snapshot of all processes in the system.
@@ -146,7 +148,7 @@ LPVOID GetVirtualAllocAddrAndWriteMemory(HANDLE hProcess, const char* filename)
 	return nullptr;
 }
 
-LPTHREAD_START_ROUTINE GetLoadLibraryAddress()
+pLoadLibraryA GetLoadLibraryAddress()
 {
 	// GetProcAddress
 	HMODULE hModuleKernel32 = LoadLibrary("kernel32");
@@ -156,7 +158,7 @@ LPTHREAD_START_ROUTINE GetLoadLibraryAddress()
 		return FALSE;
 	}
 	// Getting LoadLibraryA address (same across all processes) to start execution at it
-	return (LPTHREAD_START_ROUTINE)GetProcAddress(hModuleKernel32, "LoadLibraryA");
+	return (pLoadLibraryA)GetProcAddress(hModuleKernel32, "LoadLibraryA");
 }
 
 BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr, LPVOID pDllFilenameAllocAddr)
@@ -196,18 +198,15 @@ BOOL InjectModule(DWORD processId, const char* filename)
 
 	// Retrieving a handle to the target process.
 	HANDLE hProcess = GetHandleByProcessId(processId);
-
 	if (hProcess != nullptr)
 	{
 		LPVOID pDllFilenameAllocAddr = GetVirtualAllocAddrAndWriteMemory(hProcess, filename);
-
 		if (pDllFilenameAllocAddr != nullptr)
 		{
-			LPTHREAD_START_ROUTINE loadLibraryAddr	= GetLoadLibraryAddress();
-
+			pLoadLibraryA loadLibraryAddr = GetLoadLibraryAddress();
 			if (loadLibraryAddr != nullptr)
 			{
-				success = CreateRemoteThread(hProcess, loadLibraryAddr, pDllFilenameAllocAddr);
+				success = CreateRemoteThread(hProcess, (LPTHREAD_START_ROUTINE)loadLibraryAddr, pDllFilenameAllocAddr);
 			}
 
 			VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath

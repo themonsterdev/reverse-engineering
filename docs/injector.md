@@ -8,6 +8,7 @@
 	- Ouvrez un handle vers le processus cible (Windows)
 	- Allouez de la mémoire dans le processus cible (Windows)
 	- Écriture dans la mémoire allouée dans le processus cible (Windows)
+	- Optenir l'adresse de la fonction LoadLibraryA dans le module Kernel32 (Windows).
 	- Créez un nouveau thread dans le processus cible (Windows)
 	- Exemple de code (Windows)
 - Références
@@ -210,6 +211,28 @@ LPVOID GetVirtualAllocAddrAndWriteMemory(HANDLE hProcess, const char* filename)
 
 Cette fonction va allouer et écrire le nom de la DLL dans la mémoire virtuelle précédemment allouée.
 
+### Optenir l'adresse de la fonction LoadLibraryA dans le module Kernel32 (Windows).
+
+La fonction `LoadLibrary` est chargée à la même adresse sur tous les processus, nous pouvont donc l'utilisé pour injecté le DLL dans un autre processus à l'aide
+de la fonction `CreateRemoteThread` que nous allons voir juste après.
+
+```c++
+typedef HMODULE(WINAPI* pLoadLibraryA)(_In_ LPCSTR);
+
+pLoadLibraryA GetLoadLibraryAddress()
+{
+	// GetProcAddress
+	HMODULE hModuleKernel32 = LoadLibrary("kernel32");
+	if (hModuleKernel32 == 0)
+	{
+		printf("[!]Failed to load module kernel32\n");
+		return FALSE;
+	}
+	// Getting LoadLibraryA address (same across all processes) to start execution at it
+	return (pLoadLibraryA)GetProcAddress(hModuleKernel32, "LoadLibraryA");
+}
+```
+
 ### Créez un nouveau thread dans le processus cible (Windows)
 
 Créez un nouveau thread dans le processus cible avec l'adresse de démarrage du thread définie sur l'adresse de **LoadLibrary** et l'argument défini sur
@@ -218,6 +241,39 @@ sur LoadLibrary, on peut écrire le code à exécuter sur la cible et démarrer 
 
 > Notez que sans précautions, cette approche peut être détectée par le processus cible en raison des notifications `DLL_THREAD_ATTACH` envoyées à chaque module
 chargé au démarrage d'un thread.
+
+```c++
+BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr, LPVOID pDllFilenameAllocAddr)
+{
+	// Starting a remote execution thread at LoadLibraryA and passing the dll path as an argument.
+	printf("[+]Creating remote thread in target Process.\n");
+	DWORD lpThreadId;
+	HANDLE hThread = CreateRemoteThread(
+		hProcess,				// A handle to the process in which the thread is to be created.
+		nullptr,				// A pointer to a SECURITY_ATTRIBUTES structure.
+		0,						// The initial size of the stack, in bytes. 
+		loadLibraryAddr,		// A pointer to the application-defined function of type LPTHREAD_START_ROUTINE to be executed by the thread and represents the starting address of the thread in the remote process.
+		pDllFilenameAllocAddr,	// A pointer to a variable to be passed to the thread function.
+		0,						// The flags that control the creation of the thread.
+		&lpThreadId				// A pointer to a variable that receives the thread identifier.
+	);
+
+	if (hThread == nullptr)
+	{
+		printf("[!]CreateRemoteThread failed with error (%d).\n", GetLastError());
+		CloseHandle(hProcess);
+		return FALSE;
+	}
+	
+	printf("[+]Succesfully Create Remote thread in target Process.\n");
+
+	printf("[+]Wait thread is loaded module as terminate.\n\n");
+	WaitForSingleObject(hThread, INFINITE); // Waiting for it to be finished
+	CloseHandle(hThread);					// Freeing the injected thread handle
+
+	return TRUE;
+}
+```
 
 ### Exemple de code (Windows)
 
