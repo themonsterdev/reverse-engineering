@@ -1,9 +1,4 @@
-#include <Windows.h>
-#include <TlHelp32.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-typedef HMODULE(WINAPI* pLoadLibraryA)(_In_ LPCSTR);
+#include "injector.h"
 
 VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPPROCESSENTRY32 lpProcessEntry32)
 {
@@ -13,7 +8,7 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 		printf("[!]CreateToolhelp32Snapshot (of processes)\n");
 	else
 	{
-		PROCESSENTRY32 pe32 { 0 };
+		PROCESSENTRY32 pe32{ 0 };
 
 		// Set the size of the structure before using it.
 		pe32.dwSize = sizeof(PROCESSENTRY32);
@@ -31,8 +26,7 @@ VOID GetProcessEntry32ByName(const char* szProcessName, DWORD th32ProcessID, LPP
 					memcpy(lpProcessEntry32, &pe32, pe32.dwSize);
 					break;
 				}
-			}
-			while (Process32Next(hProcessSnap, &pe32));
+			} while (Process32Next(hProcessSnap, &pe32));
 		}
 
 		CloseHandle(hProcessSnap);
@@ -148,17 +142,17 @@ LPVOID GetVirtualAllocAddrAndWriteMemory(HANDLE hProcess, const char* filename)
 	return nullptr;
 }
 
-pLoadLibraryA GetLoadLibraryAddress()
+LPTHREAD_START_ROUTINE GetLoadLibraryAddress()
 {
 	// GetProcAddress
-	HMODULE hModuleKernel32 = LoadLibrary("kernel32");
+	HMODULE hModuleKernel32 = LoadLibraryA("kernel32");
 	if (hModuleKernel32 == 0)
 	{
 		printf("[!]Failed to load module kernel32\n");
 		return FALSE;
 	}
 	// Getting LoadLibraryA address (same across all processes) to start execution at it
-	return (pLoadLibraryA)GetProcAddress(hModuleKernel32, "LoadLibraryA");
+	return (LPTHREAD_START_ROUTINE)GetProcAddress(hModuleKernel32, "LoadLibraryA");
 }
 
 BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr, LPVOID pDllFilenameAllocAddr)
@@ -182,7 +176,7 @@ BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr,
 		CloseHandle(hProcess);
 		return FALSE;
 	}
-	
+
 	printf("[+]Succesfully Create Remote thread in target Process.\n");
 
 	printf("[+]Wait thread is loaded module as terminate.\n\n");
@@ -203,10 +197,10 @@ BOOL InjectModule(DWORD processId, const char* filename)
 		LPVOID pDllFilenameAllocAddr = GetVirtualAllocAddrAndWriteMemory(hProcess, filename);
 		if (pDllFilenameAllocAddr != nullptr)
 		{
-			pLoadLibraryA loadLibraryAddr = GetLoadLibraryAddress();
+			LPTHREAD_START_ROUTINE loadLibraryAddr = (LPTHREAD_START_ROUTINE)GetLoadLibraryAddress();
 			if (loadLibraryAddr != nullptr)
 			{
-				success = CreateRemoteThread(hProcess, (LPTHREAD_START_ROUTINE)loadLibraryAddr, pDllFilenameAllocAddr);
+				success = CreateRemoteThread(hProcess, loadLibraryAddr, pDllFilenameAllocAddr);
 			}
 
 			VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
@@ -217,36 +211,4 @@ BOOL InjectModule(DWORD processId, const char* filename)
 	}
 
 	return success;
-}
-
-int main(int argc, char* argv[])
-{
-	// Args required
-	if (argc < 3)
-	{
-		printf("[!]Usage : <ExeWindowName> <DLLFilepath>\n");
-		return EXIT_FAILURE;
-	}
-
-	// Get Process entry
-	PROCESSENTRY32 pe32;
-	GetProcessEntry32ByName(argv[1], 0, &pe32);
-	printf("[+]PROCESS NAME: %s\n", pe32.szExeFile);
-	printf("\t[+]Process ID        = 0x%08X\n", pe32.th32ProcessID);		// this process
-	printf("\t[+]Module ID         = 0x%08X\n\n", pe32.th32ModuleID);	// this module
-
-	// Inject module
-	char dllFilepath[_MAX_PATH]; // getting the full path of the dll file
-	GetFullPathName(argv[2], _MAX_PATH, dllFilepath, NULL);
-	if (!InjectModule(pe32.th32ProcessID, dllFilepath))
-	{
-		printf("[!]Failed to inject <%s>.\n", dllFilepath);
-		return EXIT_FAILURE;
-	}
-
-	// Successfully
-	printf("[+]Successfully Injected module <%s> :).\n\n", dllFilepath);
-	system("pause");
-
-	return EXIT_SUCCESS;
 }

@@ -10,7 +10,8 @@
 	- Écriture dans la mémoire allouée dans le processus cible (Windows)
 	- Optenir l'adresse de la fonction LoadLibraryA dans le module Kernel32 (Windows).
 	- Créez un nouveau thread dans le processus cible (Windows)
-	- Exemple de code (Windows)
+	- Appels de toutes les fonctions précédentes (Windows)
+	- Point d'entrée de la console (Windows)
 - Références
 
 ## Introduction
@@ -272,6 +273,75 @@ BOOL CreateRemoteThread(HANDLE hProcess, LPTHREAD_START_ROUTINE loadLibraryAddr,
 	CloseHandle(hThread);					// Freeing the injected thread handle
 
 	return TRUE;
+}
+```
+
+### Appels de toutes les fonctions précédentes (Windows)
+
+```c++
+BOOL InjectModule(DWORD processId, const char* filename)
+{
+	BOOL success = FALSE;
+
+	// Retrieving a handle to the target process.
+	HANDLE hProcess = GetHandleByProcessId(processId);
+	if (hProcess != nullptr)
+	{
+		LPVOID pDllFilenameAllocAddr = GetVirtualAllocAddrAndWriteMemory(hProcess, filename);
+		if (pDllFilenameAllocAddr != nullptr)
+		{
+			LPTHREAD_START_ROUTINE loadLibraryAddr = (LPTHREAD_START_ROUTINE)GetLoadLibraryAddress();
+			if (loadLibraryAddr != nullptr)
+			{
+				success = CreateRemoteThread(hProcess, loadLibraryAddr, pDllFilenameAllocAddr);
+			}
+
+			VirtualFreeEx(hProcess, pDllFilenameAllocAddr, 0, MEM_RELEASE);	// The memory allocated for the DLL filepath
+			success = true;
+		}
+
+		CloseHandle(hProcess); // The handle for the target process
+	}
+
+	return success;
+}
+```
+
+### Point d'entrée de la console (Windows)
+
+```c++
+#include "injector.h"
+
+int main(int argc, char* argv[])
+{
+	// Args required
+	if (argc < 3)
+	{
+		printf("[!]Usage : <ExeWindowName> <DLLFilepath>\n");
+		return EXIT_FAILURE;
+	}
+
+	// Get Process entry
+	PROCESSENTRY32 pe32;
+	GetProcessEntry32ByName(argv[1], 0, &pe32);
+	printf("[+]PROCESS NAME: %s\n", pe32.szExeFile);
+	printf("\t[+]Process ID        = 0x%08X\n", pe32.th32ProcessID);		// this process
+	printf("\t[+]Module ID         = 0x%08X\n\n", pe32.th32ModuleID);	// this module
+
+	// Inject module
+	char dllFilepath[_MAX_PATH]; // getting the full path of the dll file
+	GetFullPathName(argv[2], _MAX_PATH, dllFilepath, NULL);
+	if (!InjectModule(pe32.th32ProcessID, dllFilepath))
+	{
+		printf("[!]Failed to inject <%s>.\n", dllFilepath);
+		return EXIT_FAILURE;
+	}
+
+	// Successfully
+	printf("[+]Successfully Injected module <%s> :).\n\n", dllFilepath);
+	system("pause");
+
+	return EXIT_SUCCESS;
 }
 ```
 
