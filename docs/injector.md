@@ -7,6 +7,7 @@
 	- Diagramme de classe (Windows)
 	- Ouvrez un handle vers le processus cible (Windows)
 	- Allouez de la mémoire dans le processus cible (Windows)
+	- Écriture dans la mémoire allouée au processus cible (Windows)
 	- Créez un nouveau thread dans le processus cible (Windows)
 	- Exemple de code (Windows)
 - Références
@@ -106,7 +107,7 @@ HANDLE GetHandleByProcessId(DWORD processId)
 
 ### Allouez de la mémoire dans le processus cible (Windows)
 
-Allouez le nom de la DLL à injecter dans la mémoire du processus cible.
+Allouez le nom de la DLL à injecter dans la mémoire du processus cible avec la fonction `VirtualAllocEx`.
 
 ```c++
 LPVOID GetVirtualAllocAddr(HANDLE hProcess, size_t dwSize)
@@ -131,6 +132,83 @@ LPVOID GetVirtualAllocAddr(HANDLE hProcess, size_t dwSize)
 	return pDllFilenameAllocAddr;
 }
 ```
+
+### Écriture dans la mémoire allouée au processus cible (Windows)
+
+Écriture le nom de la DLL à injecter dans la mémoire du prossesus cible avec la fonction `WriteProcessMemory`.
+
+> Note : La mémoire virtuelle doit avoir la protection `PAGE_EXECUTE_READWRITE` activée sinon vous ne seriez pas autorisé à injecter quoi que ce soit.
+
+```c++
+LPVOID GetVirtualAllocAddrAndWriteMemory(HANDLE hProcess, const char* filename)
+{
+	size_t dwFilepathSize = strlen(filename) + 1;
+
+	LPVOID pDllFilenameAllocAddr = GetVirtualAllocAddr(hProcess, dwFilepathSize);
+	if (pDllFilenameAllocAddr != nullptr)
+	{
+		printf("[+]Unprotect virtual memory for target process handle.\n");
+		DWORD lpflOldProtect = 0; // A pointer to a variable that receives the previous access protection of the first page in the specified region of pages.
+		BOOL success = VirtualProtectEx(
+			hProcess,				// A handle to the process whose memory protection is to be changed.
+			pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
+			dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
+			PAGE_EXECUTE_READWRITE,	// The memory protection option.
+			&lpflOldProtect
+		);
+		if (!success)
+		{
+			printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
+			return nullptr;
+		}
+		printf("[+]Succesfully set virtual protect (0x%08x).\n", PAGE_EXECUTE_READWRITE);
+
+		// Writing the dll path into that memory.
+		printf("\t[+]Writes module filename to an area of memory in a target process.\n");
+		SIZE_T lpNumberOfBytesWritten;
+		success = WriteProcessMemory(
+			hProcess,				// A handle to the process memory to be modified.
+			pDllFilenameAllocAddr,	// A pointer to the base address in the specified process to which data is written.
+			filename,				// A pointer to the buffer that contains data to be written in the address space of the specified process.
+			dwFilepathSize,			// The number of bytes to be written to the specified process.
+			&lpNumberOfBytesWritten	// A pointer to a variable that receives the number of bytes transferred into the specified process.
+		);
+		if (!success)
+		{
+			printf("\t[!]WriteProcessMemory failed with error (%d).\n", GetLastError());
+			return nullptr;
+		}
+		else if (lpNumberOfBytesWritten != dwFilepathSize)
+		{
+			printf("\t[!]WriteProcessMemory failed not set total length.\n");
+			return nullptr;
+		}
+		printf("\t[+]Succesfully write memory in handle process.\n");
+
+		// Reset VirtualProtectEx
+		printf("\t[+]Reset protect virtual memory for target process handle.\n");
+		success = VirtualProtectEx(
+			hProcess,				// A handle to the process whose memory protection is to be changed.
+			pDllFilenameAllocAddr,	// A pointer to the base address of the region of pages whose access protection attributes are to be changed.
+			dwFilepathSize,			// The size of the region whose access protection attributes are changed, in bytes.
+			lpflOldProtect,			// [Reset] The memory protection option.
+			&lpflOldProtect
+		);
+		if (!success)
+		{
+			printf("[!]VirtualProtectEx failed with error (%d).\n", GetLastError());
+			return nullptr;
+		}
+		printf("[+]Succesfully reset virtual protect (0x%08x).\n\n", lpflOldProtect);
+
+		return pDllFilenameAllocAddr;
+	}
+
+	return nullptr;
+}
+```
+
+Cette fonction va allouer et écrire le nom de la DLL dans la mémoire virtuelle précédemment allouée.
 
 ### Créez un nouveau thread dans le processus cible (Windows)
 
