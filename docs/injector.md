@@ -235,9 +235,9 @@ pLoadLibraryA GetLoadLibraryAddress()
 
 ### Créez un nouveau thread dans le processus cible (Windows)
 
-Créez un nouveau thread dans le processus cible avec l'adresse de démarrage du thread définie sur l'adresse de **LoadLibrary** et l'argument défini sur
+Créez un nouveau thread dans le processus cible avec l'adresse de démarrage du thread définie sur l'adresse de `LoadLibrary` et l'argument défini sur
 l'adresse de la chaîne qui vient d'être téléchargée dans la cible. Au lieu d'écrire le nom d'une DLL à charger sur la cible et de démarrer le nouveau thread
-sur LoadLibrary, on peut écrire le code à exécuter sur la cible et démarrer le thread sur ce code.
+sur `LoadLibrary`, on peut écrire le code à exécuter sur la cible et démarrer le thread sur ce code.
 
 > Notez que sans précautions, cette approche peut être détectée par le processus cible en raison des notifications `DLL_THREAD_ATTACH` envoyées à chaque module
 chargé au démarrage d'un thread.
