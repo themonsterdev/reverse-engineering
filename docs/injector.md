@@ -7,7 +7,7 @@
 	- Diagramme de classe (Windows)
 	- Ouvrez un handle vers le processus cible (Windows)
 	- Allouez de la mémoire dans le processus cible (Windows)
-	- Écriture dans la mémoire allouée au processus cible (Windows)
+	- Écriture dans la mémoire allouée dans le processus cible (Windows)
 	- Créez un nouveau thread dans le processus cible (Windows)
 	- Exemple de code (Windows)
 - Références
@@ -133,7 +133,7 @@ LPVOID GetVirtualAllocAddr(HANDLE hProcess, size_t dwSize)
 }
 ```
 
-### Écriture dans la mémoire allouée au processus cible (Windows)
+### Écriture dans la mémoire allouée dans le processus cible (Windows)
 
 Écriture le nom de la DLL à injecter dans la mémoire du prossesus cible avec la fonction `WriteProcessMemory`.
 
