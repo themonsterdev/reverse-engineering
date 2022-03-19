@@ -108,9 +108,29 @@ HANDLE GetHandleByProcessId(DWORD processId)
 
 Allouez le nom de la DLL à injecter dans la mémoire du processus cible.
 
-> Cette étape peut être ignorée si un nom de DLL approprié est déjà disponible dans le processus cible. Par exemple, si un processus est lié à `User32.dll`,
-`GDI32.dll`, `Kernel32.dll` ou toute autre bibliothèque dont le nom se termine par `32.dll`, il serait possible de charger une bibliothèque nommée `32.dll`.
-Cette technique s'est révélée efficace dans le passé contre une méthode de protection des processus contre l'`injection de DLL`.
+```c++
+LPVOID GetVirtualAllocAddr(HANDLE hProcess, size_t dwSize)
+{
+	printf("[+]Reserve memory in the virtual address space of the target process.\n");
+
+	// Allocating memory in the target process
+	LPVOID pDllFilenameAllocAddr = VirtualAllocEx(
+		hProcess,					// The function allocates memory within the virtual address space of this process.
+		nullptr,					// The pointer that specifies a desired starting address for the region of pages that you want to allocate.
+		dwSize,						// The size of the region of memory to allocate, in bytes.
+		MEM_COMMIT | MEM_RESERVE,	// The type of memory allocation.
+		PAGE_READWRITE				// The memory protection for the region of pages to be allocated.
+	);
+	if (pDllFilenameAllocAddr == nullptr)
+	{
+		printf("[!]VirtualAllocEx failed with error (%d).\n", GetLastError());
+		return nullptr;
+	}
+
+	printf("[+]Succesfully reserve memory in the virtual address space of the target process.\n\n");
+	return pDllFilenameAllocAddr;
+}
+```
 
 ### Créez un nouveau thread dans le processus cible (Windows)
 
